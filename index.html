@@ -2,265 +2,115 @@
   <head> </head>
 
   <body>
-    <h1>Project 3-1 Write-Up</h1>
-    <h2>Website: https://evelynwu88.github.io/cs184-proj3-1-website/</h2>
+    <h1>Project 3-2 Write-Up</h1>
+    <h2>Website: https://evelynwu88.github.io/cs184-proj3-2-website/</h2>
     <h2>Overview</h2>
     <p>
-      For this project, we took a closer look at the ray generation and primitive intersection parts of the rendering pipeline and implemented triangle intersection algorithm in Part 1. We then sped up this process using BVH construction algorithm in Part 2. In Parts 3-5, we implemented direct illumination, global illumination (taking into consideration of indirect bounces), and adaptive sampling.
+      For this project, we chose to implement Part 1: Mirror and Glass Materials, and Part 4: Depth of Field. For Part 1, we implemented reflection and refraction and sample_f for both mirror and glass materials. In Part 4, we implemented depth of field by simulating thin lens. This allows us to focus on different areas of the scene, instead of focusing on every part of the scene like in a pinhole camera. Some of the difficulties we encountered are passing in the the wrong arguments to render our results, where we tried to debug for a long time but realized our code was correct in the end.
     </p>
     <h2>Task 1</h2>
     <p>
-      <h3>1. Walk through the ray generation and primitive intersection parts of the
-      rendering pipeline. Explain the triangle intersection algorithm you
-      implemented in your own words.</h3>
+      <h3>Summary of Implementation</h3>
+      Mirror Material: <br />
 
-      To generate a ray, we first calculated the bottom left and top right
-      coordinates in camera space using hFov and vFov. These points have z = -1
-      because they are on the same plane as the sensor. Then, using the inputs x
-      and y, we interpolated where (x, y) would be on the camera space, with z =
-      -1. Next we multiplied this vector with the c2w matrix so that we
-      transform it into the world space and normalized it. We created a ray with
-      starting position pos because that is the position of the camera and
-      direction as the normalized vector. Lastly, we initialized that ray’s
-      min_t and max_t to nClip and fClip, respectively.
+For mirror material, we first implemented the reflect function that reflects wo vector around axis [0, 0, 1] by negating the x and y posiyions of wo and assigning that to *wi. For mirror’s sample_f function, we simply called reflect, set the pdf to 1, and returned reflectance / abs_cos_theta(*wi). <br />
 
-      <br />
-      <br />
-      For ray-triangle intersection, we used the Moller Trumbore algorithm to
-      efficiently calculate the time of the intersection and two of the three
-      barycentric coordinates. Using t, b1, and b2, we know that there isn’t an
-      intersection if t < the ray’s min_t or t > the ray’s max_t. With the two
-      barycentric coordinates b1 and b2, we can get b3 by 1 - b1 - b2. We know
-      that there isn’t an intersection if any of the barycentric coordinates are
-      < 0 or > 0. And if they sum up to > 1, then we also know that there isn’t
-      an intersection. If none of the above conditions are satisfied, then we
-      know that there is an intersection, so we set the ray’s max_t to the t
-      foudn from Moller Trumbore. If we are supposed to set the intersection
-      object, then we set its t, normal, primitive, and bsdf.
+Glass material: <br />
 
-      <br />
-      <br />
-      For ray-sphere intersection, we plug in the ray equation into the sphere
-      equation and set that equal to 0. This is a quadratic equation, so we can
-      solve it using the quadratic formula. We first calculate the determinant
-      to see if there are 0, 1, or 2 real solutions. If the determinant is
-      negative, it means that the ray and the sphere did not intersect. If the
-      determinant is 0, we set t1 and t2 to the same number, which is root of
-      that quadratic equation. If the determinant is positive, we set t1 to the
-      smaller root and t2 to the larger root. If the smaller root is smaller
-      than the ray’s min_t or the larger root is larger than the ray’s max_t,
-      then we know that there isn’t an intersection, and t1 and t2 would not be
-      set to anything. If we are supposed to set the intersection object, then
-      we set its t, normal, primitive, and bsdf.
+For glass material, we first implemented refract function that refracts the wo vector into a wi vector. To do this, we checked if we are refracting from inside or outside of the object, thereby adjusting our index of refraction and applying the Snell’s law. In the case of total internal reflection, we returned false and the wi vector is unused. In glass’s sample_f function, we check if there is internal reflection by calling the refract function. If there is, then we reflect and set pdf = 1. Otherwise, we use Schlick’s approximation to calculate an R, such that with probability R we will reflect (otherwise we refract). We then call the corresponding helper functions to model reflection and refraction.
 
-      <h3>2. 
-        Show images with normal shading for a few small .dae files.
-        </h3>
-
-      
-      <img src="websiteimages/Part1_CBCoil.png" alt="" width="700" />
+      <h3>Show a sequence of six images of scene CBspheres.dae rendered with max_ray_depth set to 0, 1, 2, 3, 4, 5, and 100. The other settings should be at least 64 samples per pixel and 4 samples per light. Point out the new multibounce effects that appear in each image. Explain how these bounce numbers relate to the particular effects that appear.</h3>
+      0 bounce: <br />
+      If we set the maximum ray depth to be 0, we only see the light source on the ceiling and nothing else in the room, because we are not allowing any bounce of light. <br />
+      <img src="websiteimages/p1/Cspheres_0.png" alt="" width="700" />
       <br />
       <br />
-      <img src="websiteimages/Part1_CBdragon.png" alt="" width="700" />
+      1 bounce: <br />
+      As m = 1, we are allowing 1 bounce of light. We have direct lighting, but we don’t see any color on either materials. This is because glass and mirror do not emit any colors, they only reflect or refract rays from the surroundings. <br />
+      <img src="websiteimages/p1/Cspheres_1.png" alt="" width="700" />
       <br />
       <br />
-      <img src="websiteimages/Part1_CBgems.png" alt="" width="700" />
+      2 bounce: <br />
+      As m = 2 and we allow 2 bounces of light, we see the reflections on the two ball. Since the left ball is mirror material, its reflection is more vivid, whereas we could only see a bit of reflection on the glass ball. Notice that the reflection depicts an image from the previous bounce, when the ceiling is still dark. In addtion, at this point, light has been refracted into the glass ball, but no light has been refracted out, which explains why it is mostly dark. <br />
+      <img src="websiteimages/p1/Cspheres_2.png" alt="" width="700" />
+      <br />
+      <br />
+      3 bounce: <br />
+      As m = 3 and we allow 3 bounces of light, the overall scene looks increasingly brighter as we increase the maximum ray depth. In addition, the glass sphere now also has color, as it takes exactly 3 bounces for light to hit it, refract into it, and refract out of it. We can also see that the area beneath the glass sphere has been lit up. <br />
+      <img src="websiteimages/p1/Cspheres_3.png" alt="" width="700" />
+      <br />
+      <br />
+      4 bounce: <br />
+      As m = 4 and we allow 4 bounces of light, the bottom of the glass ball has grown even brighter. In addition, we see that the blue wall on the right have a small portion being lit up by the glass sphere. This is due to more bounces of light reflecting between the floor and sphere and the wall and sphere. <br />
+      <img src="websiteimages/p1/Cspheres_4.png" alt="" width="700" />
+      <br />
+      <br />
+      5 bounce: <br />
+      As m = 5, the appearance of both spheres seem to start converging. We can see the reflection in the mirror ball being brighter, as the overall surroundings increasingly become brighter with every bounce. We also see the bottom of glass ball being brighter and a bit noisier due to many reflection and refraction bounces. <br />
+      <img src="websiteimages/p1/Cspheres_5.png" alt="" width="700" />
+      <br />
+      <br />
+      100 bounce: <br />
+      With 100 bounces of light, the overall scene appears very similar to the one with 5 bounces, but overall brighter. Most rays have been terminated by Russian Roulette at this point and beyond. <br />
+      <img src="websiteimages/p1/Cspheres_100.png" alt="" width="700" />
       <br />
       <br />
       <br />
     </p>
 
-    <br />
-    <h2>Task 2</h2>
-    <p>
-      <h3>1. Walk through your BVH construction algorithm. Explain the heuristic you chose for picking the splitting point.</h3>
-      We first go through each of the primitives from start to end to calculate the midpoint of the centroids of all primitives, count the number of primitives, and create a bounding box with all of the primitives. Then we create a BVHNode with the bounding box. If the number of primitives we have is <= max_leaf_size, then we treat this node as a leaf node, so we set the start and end of the new node to be the same as the ones that are passed in. Otherwise, we need to divide the primitives we have into two partitions. The heuristic we used for the splitting point is to first figure out which axis is the longest using bbox.extent. Then, for each primitive, we check if that primitive’s coordinate on the longest axis is < the midpoint’s coordinate on the longest axis. If that is the case, then the primitive is added to the left partition. If not, then it is added to the right partition. We recursively call construct_bvh on the left and the right half of the primitives and set the return value to the current node->l and node->r. And lastly we return the node.
-
-      <h3>2. Show images with normal shading for a few large .dae files that you can only render with BVH acceleration.</h3>
-      <img src="websiteimages/p2-beast.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p2-lucy.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p2-maxplanck.png" alt="" width="700" />
-      <br />
-      <br />
-      <br />
-
-      <h3>3. Compare rendering times on a few scenes with moderately complex geometries with and without BVH acceleration. Present your results in a one-paragraph analysis.</h3>
-      Without BVH acceleration, maxplanck took 174.4309s to render. With BVH acceleration, it only took 0.0515s to render. For CBlucy, it took 608.0158s to render without BVH acceleration and it only took 0.0391s to render with BVH acceleration. This speedup is probably the result of being able to determine if there are intersections more efficiently. This means that if the ray did not intersect with the bounding box, we don’t need to check for intersections for the primitives inside the bounding box, which saves a lot of time. The heuristic for the splitting point also helped improve the rendering time because it tries to split the primitives into roughly equal halves.
-    </p>
-
-    <br />
-
-    <h2>Task 3</h2>
-
-    <p>
-      <h3>1. Walk through both implementations of the direct lighting function.</h3>
-      Estimate Direct Lighting Hemisphere:
-We first calculate the intersection point between the ray that comes out from the camera and any object in scene, then we convert this hit point to a ray that has direction pointing towards the camera. For each point that we want to sample, we pick a random point in the hemisphere and convert it into world space. We then generate a ray starting at this point towards the camera and find if this ray intersects with an object in scene, get its emission, and add its contribution by L_out += fr * li * cos * 2.0 * PI. Lastly, after the loop ends, we divide L_out by the total number of samples to get the average L_out. Since Estimate Direct Lighting Hemisphere samples uniformly across the hemisphere, if there is little light source for the ray to intersect, there will be a lot of noise.
-
-<br />
-<br />
-Estimate Direct Lighting Importance:
-For direct lighting importance, we perform the same steps as hemisphere, as we figure out the direction of ray pointing towards the camera. Then, we determine if the source of light is a point or if it spans over an area in order to figure out the number of samples we want to take (just 1 if it is a point light source, otherwise the area of the light source). After that, we use a for loop: for each point that we want to sample, we sample the light source and get its incoming direction, distance to hit point, and pdf. Then, we convert the incoming direction of the light to object coordinates. If the z coordinate of the sample is greater or equal to 0, we make a ray that goes from hit point to light source, and set its min and max t values correspondingly. If this ray does not intersect with any object in scene, we add the light contribution of this sample point to L_out, by L_out += fr * li * cos / pdf. Lastly, after the loop ends, we divide L_out by the total number of samples to get the average L_out. 
-      <br />
-      <h3>2. Show some images rendered with both implementations of the direct lighting function.</h3>
-
-      Importance sampling lights for CBbunny: <br/>
-      <img src="websiteimages/Part3_q2_CBbunny_64_32.png" alt="" width="700" />
-      <br />
-      <br />
-      Uniform hemisphere sampling for CBbunny: <br />
-      <img src="websiteimages/Part3_q2_CBbunny_H_64_32.png" alt="" width="700" />
-      <br />
-      <br />
-      Importance sampling lights for CBspheres_lambertian: <br/>
-      <img src="websiteimages/Part3_q2_CBspheres_64_32.png" alt="" width="700" />
-      <br />
-      <br />
-      Uniform hemisphere sampling for CBspheres_lambertian: <br />
-      <img src="websiteimages/Part3_q2_CBspheres_H_64_32.png" alt="" width="700" />
-      <br />
-      <br />
-      <br />
-
-      <h3>3. Focus on one particular scene with at least one area light and compare the noise levels in soft shadows when rendering with 1, 4, 16, and 64 light rays (the -l flag) and with 1 sample per pixel (the -s flag) using light sampling, not uniform hemisphere sampling.</h3>
-      The following screenshots are rendered with 1, 4, 16, and 64 light rays and 1 sample per pixel. There are a lot of noise in soft shadows for 1 light ray. The noise decreases as we increase the number of light rays. And at 64 light rays, there is very little noise.
-      <br />
-      <br />
-      <img src="websiteimages/p3-q3-1lightray.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p3-q3-4lightray.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p3-q3-16lightray.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p3-q3-64lightray.png" alt="" width="700" />
-      <br />
-      <br />
-      <br />
-      
-      <h3>4. Compare the results between uniform hemisphere sampling and lighting sampling in a one-paragraph analysis.</h3>
-      We can see that hemisphere sampling is noisier than importance sampling. This makes sense, since hemisphere sampling samples randomly across the hemisphere. This means that there is the possibility where we sample points that are not from the light source, diluting the “important” points and adding noise to the scene. On the other hand, in importance sampling, we only select samples that fall from the light source and also has a hit point that our camera ray hits. Hence, we make sure that every point we sample contributes to the total amount of illumination, thereby eliminating randomness and producing and much smoother picture.
-    </p>
-    <br />
 
     <h2>Task 4</h2>
     <p>
-      <h3>1. Walk through your implementation of the indirect lighting function.</h3>
+      <h3>Summary of Implementation</h3>
+      We first found the bottom left and top right of the image plane and used that to figure out the direction of the red ray, which is the original ray before any refraction happens. Then we used rndR, rndTheta, and lensRadius get a sample of the point on the thin lens. pFocus then becomes the red ray's direction scaled by the focalDistance. Using pFocus and pLens, we can figure out the direction of the ray after it refracts (this is the direction of the blue ray). We transformed this vector into the world space and constructed a ray with that direction. For the starting point of that ray, we transformed pLens into the world space and added the current position. This ray is then returned.
 
-      In at_least_one_bounce_radiance, the goal is to return one bounce radiance + extra bounce radiance generated with recursive calls. We first calculate the hit point between the ray and an object in scene, and convert it to the direction pointing towards the camera. We first set L_out to be one_bounce_radiance, then, we sample the bsdf of this the hit point while getting its incoming direction and pdf. After that, we create a sample ray in the incoming direction and the ray depth of one less than the original given r.depth, to simulate that this is a reflected/bounced ray.  We then check if the max_ray_depth is <= 1, if it is, we reach base case and return L_out. Otherwise, we use Russian Roulette with 0.35 termination probability to check if we should continue doing the recursive call. The termination condition is thus coin_flip(0.35) && r.depth != max_ray_depth. If the recursion does not terminate and the sample ray intersects with an object in scene, we do a recursive call and add its corresponding light contribution to L_out by L_out += at_least_one_bounce_radiance(sample_ray, intersection) * fr * cos / pdf / 0.65. 
+      <h3>1. In a few sentences, explain the differences between a pinhole camera model and a thin-lens camera model.</h3>
 
-      <h3>2. Show some images rendered with global (direct and indirect) illumination. Use 1024 samples per pixel.</h3>
-      <img src="websiteimages/p4-q2-blob.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p4-q2-bunny.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p4-q2-dragon.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p4-q2-sphereslamb.png" alt="" width="700" />
-      <br />
-      <br />
-      <br />
+      A pinhole camera model makes the entire image look focused. A thin-lens camera model only makes some parts of the image look focused, which is more realistic. Depending on the focal distance and the lens radius, the area of the rendered image that is focused could vary in size and position. This is because in a pinhole camera model just shoots a ray straight to some location without any direction changing in the middle. In a thin-lens camera model, once the ray reaches the thin-lens, it could refract and change direction, causing the area/position of focus to vary. 
 
-      <h3>3. Pick one scene and compare rendered views first with only direct illumination, then only indirect illumination. Use 1024 samples per pixel. (You will have to edit PathTracer::at_least_one_bounce_radiance(...) in your code to generate these views.)</h3>
-      Only direct illumination: <br /> 
-      <img src="websiteimages/Part4_q3_directSphere.png" alt="" width="700" />
+      <h3>2. Show a "focus stack" where you focus at 4 visibly different depths through a scene.</h3>
+      The following images all have lens radius of 1.23 but with varying focal distances. As the focal distance increases, we can see that the area of focus on the dragon is moving towards the back of the scene. <br /> <br />
+      Depth = 4.6: <br />
+      <img src="websiteimages/p4_q2/dragon_b=1.23_d=4.6.png" alt="" width="700" />
       <br />
       <br />
-      Only indirect illumination: <br />
-      <img src="websiteimages/Part4_q3_indirectSphere.png" alt="" width="700" />
+      Depth = 4.7: <br />
+      <img src="websiteimages/p4_q2/dragon_b=1.23_d=4.7.png" alt="" width="700" />
+      <br />
+      <br />
+      Depth = 4.9: <br />
+      <img src="websiteimages/p4_q2/dragon_b=1.23_d=4.9.png" alt="" width="700" />
+      <br />
+      <br />
+      Depth = 5.1: <br />
+      <img src="websiteimages/p4_q2/dragon_b=1.23_d=5.1.png" alt="" width="700" />
       <br />
       <br />
       <br />
 
-
-      <h3>4. For CBbunny.dae, compare rendered views with max_ray_depth set to 0, 1, 2, 3, and 100 (the -m flag). Use 1024 samples per pixel.</h3>
-      As the max_ray_depth increases, the rendered views become brighter.<br />
-      <br />
-      max_ray_depth = 0: <br /> 
-      <img src="websiteimages/p4-q4-0depth.png" alt="" width="700" />
+      <h3>3. Show a sequence of 4 pictures with visibly different aperture sizes, all focused at the same point in a scene. </h3>
+      The following images all have focal distance of 4.56 but with varying lens radius. As the radius of the lens increases, we can see that the amount of area that is focused decreases. <br /> <br />
+      Radius = 0.1: <br />
+      <img src="websiteimages/p4_q3/dragon_b=0.1_d=4.56.png" alt="" width="700" />
       <br />
       <br />
-      max_ray_depth = 1: <br />
-      <img src="websiteimages/p4-q4-1depth.png" alt="" width="700" />
+      Radius = 0.3: <br />
+      <img src="websiteimages/p4_q3/dragon_b=0.3_d=4.56.png" alt="" width="700" />
       <br />
       <br />
-      max_ray_depth = 2: <br />
-      <img src="websiteimages/p4-q4-2depth.png" alt="" width="700" />
+      Radius = 0.5: <br />
+      <img src="websiteimages/p4_q3/dragon_b=0.5_d=4.56.png" alt="" width="700" />
       <br />
       <br />
-      max_ray_depth = 3: <br />
-      <img src="websiteimages/p4-q4-3depth.png" alt="" width="700" />
-      <br />
-      <br />
-      max_ray_depth = 100: <br />
-      <img src="websiteimages/p4-q4-100depth.png" alt="" width="700" />
+      Radius = 1.0: <br />
+      <img src="websiteimages/p4_q3/dragon_b=1.0_d=4.56.png" alt="" width="700" />
       <br />
       <br />
       <br />
 
-      <h3>5. Pick one scene and compare rendered views with various sample-per-pixel rates, including at least 1, 2, 4, 8, 16, 64, and 1024. Use 4 light rays.</h3>
-      As the sample-per-pixel rates increase, the rendered views become less noisy.
-      <br />
-      <br />
-      sample-per-pixel = 1: <br />
-      <img src="websiteimages/Part4_q5_s1.png" alt="" width="700" />
-      <br />
-      <br />
-      sample-per-pixel = 2: <br />
-      <img src="websiteimages/Part4_q5_s2.png" alt="" width="700" />
-      <br />
-      <br />
-      sample-per-pixel = 4: <br />
-      <img src="websiteimages/Part4_q5_s4.png" alt="" width="700" />
-      <br />
-      <br />
-      sample-per-pixel = 8: <br />
-      <img src="websiteimages/Part4_q5_s8.png" alt="" width="700" />
-      <br />
-      <br />
-      sample-per-pixel = 16: <br />
-      <img src="websiteimages/Part4_q5_s16.png" alt="" width="700" />
-      <br />
-      <br />
-      sample-per-pixel = 64: <br />
-      <img src="websiteimages/Part4_q5_s64.png" alt="" width="700" />
-      <br />
-      <br />
-      sample-per-pixel = 1024: <br />
-      <img src="websiteimages/Part4_q5_s1024.png" alt="" width="700" />
-      <br />
-      <br />
-      <br />
+      <h3>Working with a Partner</h3>
+      We pair programmed the entire project together. For Part 1, Joy was the "driver" in the pair programming and for Part 4, Evelyn was the "driver". It went well because we were both very involved in each part of the project and we were able to learn and understand our tasks.
     </p>
-
-    <br />
-    <h2>Task 5</h2>
-
-    <p>
-      <h3>1. Walk through your implementation of the adaptive sampling.</h3>
-
-    We keep track of two variables, s1 and s2. For each sample, we add that sample’s estimated radiance’s illumination to s1 and the square of that amount to s2. We also have another variable to keep track of how many pixels we have sampled so far so that if it converges early, we know how many pixels were sampled for that position. For every samplesPerBatch, we compute the mean and variance of using the current values of s1 and s2. We take the square root to get the standard deviation. Using mean and variance, we can calculate the convergence. If it is <= maxTolerance * mean, then we know that it has converged and we can stop, so we break out of the for loop. Then we update the sampleBuffer with the sum of radiance divided by the number of pixels we sampled so far. And we also updated the sampleCountBuffer with the number of pixels we sampled so far.
-
-
-      <h3>2. Pick one scene and render it with at least 2048 samples per pixel. Show a good sampling rate image with clearly visible differences in sampling rate over various regions and pixels. Include both your sample rate image, which shows your how your adaptive sampling changes depending on which part of the image you are rendering, and your noise-free rendered result. Use 1 sample per light and at least 5 for max ray depth.</h3>
-
-      <img src="websiteimages/p5.png" alt="" width="700" />
-      <br />
-      <br />
-      <img src="websiteimages/p5-rate.png" alt="" width="700" />
-      <br />
-      <br />
-      <br />
-
 
     <br />
   </body>
